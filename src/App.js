@@ -11,6 +11,7 @@ function App() {
   const [bookingId, setBookingId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [chatHistory, setChatHistory] = useState(null);
+  console.log("chatHistory: ", chatHistory);
   const [stopScroll, setStopScroll] = useState(true)
   const scrollRef = useRef(null);
 
@@ -132,13 +133,11 @@ function App() {
     setMessage(event.target.value);
   };
 
-  const handlePopoverOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
+  const fileInputChanged = (e) => {
+    console.log("file input changed", e);
+    alert('Selected file: ' + e.name);
+  }
 
-  const handlePopoverClose = () => {
-    setAnchorEl(null);
-  };
 
   const formatTime = (date) => {
     return new Date(date * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -149,7 +148,15 @@ function App() {
     return new Date(timestamp.seconds * 1000).toLocaleDateString();
   };
 
-  const open = Boolean(anchorEl);
+  // const handlePopoverOpen = (event) => {
+  //   setAnchorEl(event.currentTarget);
+  // };
+
+  // const handlePopoverClose = () => {
+  //   setAnchorEl(null);
+  // };
+
+  // const open = Boolean(anchorEl);
 
   return (
     <>
@@ -225,10 +232,17 @@ function App() {
           <Divider />
           <Grid container spacing={1} sx={{ py: 1 }}>
             <Grid item xs={1.2}>
-              <IconButton color="primary" aria-label="upload attachment" component="span" onClick={handlePopoverOpen}>
+              <IconButton
+                color="primary"
+                aria-label="upload attachment"
+                component="span"
+                sx={{ position: "relative" }}
+              // onClick={handlePopoverOpen}
+              >
+                <input type="file" onChange={(e) => fileInputChanged(e.target.files[0])} id="fileInput" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, opacity: 0 }} />
                 <AttachmentIcon />
               </IconButton>
-              <Popover
+              {/* <Popover
                 open={open}
                 anchorEl={anchorEl}
                 onClose={handlePopoverClose}
@@ -238,7 +252,7 @@ function App() {
                 }}
               >
                 <Typography sx={{ p: 2 }}>Your popover content here</Typography>
-              </Popover>
+              </Popover> */}
             </Grid>
             <Grid item xs={8.7}>
               <TextField
