@@ -1,26 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Divider, Grid, TextField, IconButton, List, ListItem, ListItemText, Avatar, Button, Typography, Popover, CircularProgress } from '@mui/material';
+import { Box, Divider, Grid, TextField, IconButton, List, ListItem, ListItemText, Avatar, Button, Typography, Popover, CircularProgress, Link } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import AttachmentIcon from '@mui/icons-material/Attachment';
-import { AddDocumentData, UpdateDocumentData, getDocumentData } from './contoller/chat';
+import { AddDocumentData, UpdateDocumentData, UploadAttachment, listenToDocumentData, loadMoreDocuments } from './contoller/chat';
 
 function App() {
   const [message, setMessage] = useState('');
-  const [anchorEl, setAnchorEl] = useState(null);
+  // const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false)
   const [bookingId, setBookingId] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [chatHistory, setChatHistory] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);
   console.log("chatHistory: ", chatHistory);
-  const [stopScroll, setStopScroll] = useState(true)
+  // const [stopScroll, setStopScroll] = useState(true)
+  const [newMessageSent, setNewMessageSent] = useState(false);
+  const [loadingHeight, setLoadingHeight] = useState("")
+  console.log("loadingHeight: ", loadingHeight);
   const scrollRef = useRef(null);
 
+
+
   useEffect(() => {
-    if (scrollRef.current && stopScroll) {
+    if (scrollRef.current && newMessageSent) {
       const scroll = scrollRef.current;
       scroll.scrollTop = scroll.scrollHeight;
+      setNewMessageSent(false);
     }
-  }, [chatHistory]);
+  }, [chatHistory, newMessageSent]);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -30,27 +36,16 @@ function App() {
     setUserId(uId);
   }, []);
 
-
-  const getData = async () => {
-    setLoading(true)
-    if (bookingId && userId) {
-      const result = await getDocumentData(bookingId, userId)
-      const formatData = filterData(result.chats);
-      console.log("formatData2: ", formatData);
-      setChatHistory(formatData)
-      setLoading(false);
-    }
-  }
-
-  const filterData = (formatData) => {
-    console.log("formatData1: ", formatData);
-    const data = formatData.sort((a, b) => new Date(a.timeStamp.seconds) - new Date(b.timeStamp.seconds));
-    return data
-  }
-
   useEffect(() => {
-    getData()
-  }, [bookingId, userId])
+    if (bookingId && userId) {
+      const unsubscribe = listenToDocumentData(bookingId, userId, (newData) => {
+        console.log("newData: ", newData.chats);
+        setChatHistory(newData.chats);
+        setNewMessageSent(true);
+      });
+      return () => unsubscribe();
+    }
+  }, [bookingId, userId]);
 
   const handleSendMessage = async () => {
 
@@ -59,24 +54,91 @@ function App() {
       return;
     }
 
-    setLoading(true)
-    setStopScroll(true)
+    if (message.trim() === '') {
+      alert('Message cannot be empty')
+      return
+    }
+
+    // setStopScroll(true)
     const data = {
       type: "query",
       queryText: message,
     }
+    setMessage('');
     const result = await AddDocumentData(bookingId, userId, data)
     console.log("result: ", result);
     if (result.status === "success") {
-      setMessage('');
-      getData()
-      setLoading(false)
+      console.log("success")
+      setNewMessageSent(true);
     }
   };
 
+  const LoadMore = async () => {
+    if (bookingId && userId) {
+      const unsubscribe = await loadMoreDocuments(bookingId, userId, (newData) => {
+        setChatHistory(previousChats => [...newData.chats, ...previousChats]);
+        const newScrollHeight = scrollRef.current.scrollHeight;
+        console.log("newScrollHeight: ", newScrollHeight);
+        const scrollOffset = newScrollHeight - loadingHeight;
+        scrollRef.current.scrollTop += scrollOffset;
+      });
+
+
+      return () => unsubscribe();
+    }
+  };
+
+  useEffect(() => {
+    const currentScrollHeight = scrollRef.current.scrollHeight;
+    setLoadingHeight(currentScrollHeight);
+    const handleScroll = () => {
+      if (scrollRef.current) {
+        const { scrollTop } = scrollRef.current;
+        if (scrollTop === 0) {
+          LoadMore();
+        }
+      }
+    };
+
+    const currentScrollRef = scrollRef.current;
+    currentScrollRef?.addEventListener("scroll", handleScroll);
+
+    return () => {
+      currentScrollRef?.removeEventListener("scroll", handleScroll);
+    };
+  }, [chatHistory]);
+
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const fileInputChanged = async (val) => {
+    // alert('Selected file: ' + e.name);
+    if (val.size > 10 * 1024 * 1024) {
+      alert("File size should not exceed 10MB.");
+      return;
+    }
+
+    const result = await UploadAttachment(bookingId, userId, val)
+    if (result.status === "success") {
+      const data = {
+        type: "attachment",
+        url: result.url,
+        mimeType: val.type
+      }
+      const result2 = await AddDocumentData(bookingId, userId, data)
+      console.log("result: ", result);
+      if (result2.status === "success") {
+      }
+    }
+  }
+
   const handleSelectOption = async (item, selectedOption) => {
     setLoading(true)
-    setStopScroll(false)
+    // setStopScroll(false)
     const newArray = [];
     item.options.forEach(item => {
       if (item.option === selectedOption) {
@@ -87,7 +149,7 @@ function App() {
 
     const result = await UpdateDocumentData(bookingId, userId, item.id, newArray)
     if (result.status === "success") {
-      getData()
+      setLoading(false)
     }
   }
 
@@ -117,11 +179,42 @@ function App() {
         </>
       )
     } else if (item.type === "attachment") {
+      function extractFileName(url) {
+        // Find the part of the URL between '/o/' and the '?' character
+        const regex = /\/o\/(.+?)\?/;
+        const match = url.match(regex);
+        const encodedPath = match ? match[1] : '';
+        // Decode the URI component to get the actual file path
+        const decodedPath = decodeURIComponent(encodedPath);
+
+        // Split the path by '/' and get the last segment, which is the filename
+        const pathSegments = decodedPath.split('/');
+        return pathSegments.pop();
+      }
+
+      function getFileIcon(mimeType) {
+        switch (mimeType) {
+          case "application/pdf":
+            return "📄"; // Placeholder for PDF icon
+          default:
+            return "📁"; // Generic file icon for unknown types
+        }
+      }
+
       return (
         <>
           <Grid container>
-            <Grid item xs={12} sm={6}>
-              <Box width={"100%"} component={"img"} src={item.url} alt='Image' />
+            <Grid item xs={12}>
+              {item.mimeType === "image/png" || item.mimeType === "image/jpeg" ?
+                <Box width={"100%"} component={"img"} src={item.url} alt='Image' />
+                :
+                <Button component="a" href={item.url} download={extractFileName(item.url)}>
+                  <span>{getFileIcon(item.mimeType)}</span>
+                  <Typography variant='caption'>
+                    {extractFileName(item.url)}
+                  </Typography>
+                </Button>
+              }
             </Grid>
           </Grid>
         </>
@@ -132,11 +225,6 @@ function App() {
   const handleMessageChange = (event) => {
     setMessage(event.target.value);
   };
-
-  const fileInputChanged = (e) => {
-    console.log("file input changed", e);
-    alert('Selected file: ' + e.name);
-  }
 
 
   const formatTime = (date) => {
@@ -261,10 +349,11 @@ function App() {
                 value={message}
                 onChange={handleMessageChange}
                 placeholder="Type a message"
+                onKeyPress={handleKeyPress}
               />
             </Grid>
             <Grid item xs={2}>
-              <IconButton color="primary" onClick={message.length ? handleSendMessage : () => console.log("enter msg")}>
+              <IconButton color="primary" onClick={handleSendMessage}>
                 <SendIcon />
               </IconButton>
             </Grid>
