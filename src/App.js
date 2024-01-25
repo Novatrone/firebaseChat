@@ -6,17 +6,14 @@ import { AddDocumentData, UpdateDocumentData, UploadAttachment, listenToDocument
 
 function App() {
   const [message, setMessage] = useState('');
-  // const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false)
   const [bookingId, setBookingId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
-  console.log("chatHistory: ", chatHistory);
-  // const [stopScroll, setStopScroll] = useState(true)
   const [newMessageSent, setNewMessageSent] = useState(false);
   const [loadingHeight, setLoadingHeight] = useState("")
-  console.log("loadingHeight: ", loadingHeight);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
 
 
 
@@ -48,27 +45,32 @@ function App() {
   }, [bookingId, userId]);
 
   const handleSendMessage = async () => {
-
     if (message.length > 200) {
       alert('Message cannot be more than 200 characters.');
       return;
     }
 
     if (message.trim() === '') {
-      alert('Message cannot be empty')
-      return
+      alert('Message cannot be empty');
+      return;
     }
 
-    // setStopScroll(true)
     const data = {
       type: "query",
       queryText: message,
-    }
+    };
+
     setMessage('');
-    const result = await AddDocumentData(bookingId, userId, data)
+    // Blur the input field to hide the keyboard
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+
+    const result = await AddDocumentData(bookingId, userId, data);
     console.log("result: ", result);
+
     if (result.status === "success") {
-      console.log("success")
+      console.log("success");
       setNewMessageSent(true);
     }
   };
@@ -116,7 +118,6 @@ function App() {
   };
 
   const fileInputChanged = async (val) => {
-    // alert('Selected file: ' + e.name);
     if (val.size > 10 * 1024 * 1024) {
       alert("File size should not exceed 10MB.");
       return;
@@ -138,7 +139,6 @@ function App() {
 
   const handleSelectOption = async (item, selectedOption) => {
     setLoading(true)
-    // setStopScroll(false)
     const newArray = [];
     item.options.forEach(item => {
       if (item.option === selectedOption) {
@@ -236,16 +236,6 @@ function App() {
     return new Date(timestamp.seconds * 1000).toLocaleDateString();
   };
 
-  // const handlePopoverOpen = (event) => {
-  //   setAnchorEl(event.currentTarget);
-  // };
-
-  // const handlePopoverClose = () => {
-  //   setAnchorEl(null);
-  // };
-
-  // const open = Boolean(anchorEl);
-
   return (
     <>
       <Box sx={{
@@ -325,22 +315,10 @@ function App() {
                 aria-label="upload attachment"
                 component="span"
                 sx={{ position: "relative" }}
-              // onClick={handlePopoverOpen}
               >
                 <input type="file" onChange={(e) => fileInputChanged(e.target.files[0])} id="fileInput" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, opacity: 0 }} />
                 <AttachmentIcon />
               </IconButton>
-              {/* <Popover
-                open={open}
-                anchorEl={anchorEl}
-                onClose={handlePopoverClose}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'left',
-                }}
-              >
-                <Typography sx={{ p: 2 }}>Your popover content here</Typography>
-              </Popover> */}
             </Grid>
             <Grid item xs={8.7}>
               <TextField
@@ -350,6 +328,7 @@ function App() {
                 onChange={handleMessageChange}
                 placeholder="Type a message"
                 onKeyPress={handleKeyPress}
+                inputRef={inputRef}
               />
             </Grid>
             <Grid item xs={2}>
