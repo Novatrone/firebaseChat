@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Divider, Grid, TextField, IconButton, List, ListItem, ListItemText, Avatar, Button, Typography, Popover, CircularProgress, Link } from '@mui/material';
+import { Box, Divider, Grid, TextField, IconButton, List, ListItem, ListItemText, Avatar, Button, Typography, Popover, CircularProgress, Link, Skeleton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import AttachmentIcon from '@mui/icons-material/Attachment';
-import { AddDocumentData, UpdateDocumentData, UploadAttachment, listenToDocumentData, loadMoreDocuments } from './contoller/chat';
+import BlockIcon from '@mui/icons-material/Block'; // Importing Block icon for visual effect
+import { AddDocumentData, UpdateDocumentData, UploadAttachment, getStatus, listenToDocumentData, loadMoreDocuments } from './contoller/chat';
 
 function App() {
   const [message, setMessage] = useState('');
@@ -12,6 +13,9 @@ function App() {
   const [chatHistory, setChatHistory] = useState([]);
   const [newMessageSent, setNewMessageSent] = useState(false);
   const [loadingHeight, setLoadingHeight] = useState("")
+  const [uploadState, setUploadState] = useState({ status: false, name: "" })
+  const [status, setStatus] = useState("");
+  console.log("status: ", status);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -33,6 +37,7 @@ function App() {
     setUserId(uId);
   }, []);
 
+  // for get all massage
   useEffect(() => {
     if (bookingId && userId) {
       const unsubscribe = listenToDocumentData(bookingId, userId, (newData) => {
@@ -43,7 +48,23 @@ function App() {
       return () => unsubscribe();
     }
   }, [bookingId, userId]);
+  // load more data
+  const LoadMore = async () => {
+    if (bookingId && userId) {
+      const unsubscribe = await loadMoreDocuments(bookingId, userId, (newData) => {
+        setChatHistory(previousChats => [...newData.chats, ...previousChats]);
+        const newScrollHeight = scrollRef.current.scrollHeight;
+        console.log("newScrollHeight: ", newScrollHeight);
+        const scrollOffset = newScrollHeight - loadingHeight;
+        scrollRef.current.scrollTop += scrollOffset;
+      });
 
+
+      return () => unsubscribe();
+    }
+  };
+
+  // send massage
   const handleSendMessage = async () => {
     if (message.length > 200) {
       alert('Message cannot be more than 200 characters.');
@@ -75,21 +96,35 @@ function App() {
     }
   };
 
-  const LoadMore = async () => {
-    if (bookingId && userId) {
-      const unsubscribe = await loadMoreDocuments(bookingId, userId, (newData) => {
-        setChatHistory(previousChats => [...newData.chats, ...previousChats]);
-        const newScrollHeight = scrollRef.current.scrollHeight;
-        console.log("newScrollHeight: ", newScrollHeight);
-        const scrollOffset = newScrollHeight - loadingHeight;
-        scrollRef.current.scrollTop += scrollOffset;
-      });
+  const fileInputChanged = async (val) => {
+    setUploadState({ status: true, name: val.name })
+    if (val.size > 10 * 1024 * 1024) {
+      alert("File size should not exceed 10MB.");
+      return;
+    }
+    const result = await UploadAttachment(bookingId, userId, val)
+    if (result.status === "success") {
+      const data = {
+        type: "attachment",
+        url: result.url,
+        mimeType: val.type
+      }
+      const result2 = await AddDocumentData(bookingId, userId, data)
+      console.log("result: ", result);
+      if (result2.status === "success") {
+        setUploadState({ status: false, name: "" })
+      }
+    }
+  }
 
-
-      return () => unsubscribe();
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
     }
   };
 
+  // adjust scroll height
   useEffect(() => {
     const currentScrollHeight = scrollRef.current.scrollHeight;
     setLoadingHeight(currentScrollHeight);
@@ -110,33 +145,6 @@ function App() {
     };
   }, [chatHistory]);
 
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const fileInputChanged = async (val) => {
-    if (val.size > 10 * 1024 * 1024) {
-      alert("File size should not exceed 10MB.");
-      return;
-    }
-
-    const result = await UploadAttachment(bookingId, userId, val)
-    if (result.status === "success") {
-      const data = {
-        type: "attachment",
-        url: result.url,
-        mimeType: val.type
-      }
-      const result2 = await AddDocumentData(bookingId, userId, data)
-      console.log("result: ", result);
-      if (result2.status === "success") {
-      }
-    }
-  }
-
   const handleSelectOption = async (item, selectedOption) => {
     setLoading(true)
     const newArray = [];
@@ -152,6 +160,21 @@ function App() {
       setLoading(false)
     }
   }
+
+  const GetChatStatus = async () => {
+    setLoading(true)
+    const result = await getStatus(bookingId, userId)
+    if (result.status === "success") {
+      setStatus(result.data.status);
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (bookingId && userId) {
+      GetChatStatus()
+    }
+  }, [bookingId, userId]);
 
   const handleMessageDesign = (item) => {
 
@@ -206,7 +229,13 @@ function App() {
           <Grid container>
             <Grid item xs={12}>
               {item.mimeType === "image/png" || item.mimeType === "image/jpeg" ?
-                <Box width={"100%"} component={"img"} src={item.url} alt='Image' />
+                <>
+                  {uploadState.status && uploadState.name === extractFileName(item.url) ?
+                    <Skeleton variant="rectangular" width="200px" height={118} />
+                    :
+                    <Box width={"100%"} component={"img"} src={item.url} alt='Image' />
+                  }
+                </>
                 :
                 <Button component="a" href={item.url} download={extractFileName(item.url)}>
                   <span>{getFileIcon(item.mimeType)}</span>
@@ -247,62 +276,89 @@ function App() {
         position: "relative",
       }}>
         <Box sx={{ flexGrow: 1, overflowY: 'auto', paddingInline: 1 }} ref={scrollRef}>
-          {chatHistory &&
-            <List>
-              {chatHistory.map((item, index) => {
-                const prevItem = chatHistory[index - 1];
-                const isNewDay = !prevItem || formatDate(item.timeStamp) !== formatDate(prevItem.timeStamp);
+          {status === 'active' &&
+            <>
+              {chatHistory &&
+                <List>
+                  {chatHistory.map((item, index) => {
+                    const prevItem = chatHistory[index - 1];
+                    const isNewDay = !prevItem || formatDate(item.timeStamp) !== formatDate(prevItem.timeStamp);
 
-                return (
-                  <>
-                    {isNewDay && (
-                      <Box sx={{ width: '100%', textAlign: 'center', my: 2 }}>
-                        <Typography variant="caption">
-                          <Divider>
-                            {formatDate(item.timeStamp)}
-                          </Divider>
-                        </Typography>
-                      </Box>
-                    )}
-                    <ListItem key={index} sx={{
-                      display: 'flex',
-                      flexDirection: item.userType === "admin" ? 'row-reverse' : 'row',
-                      justifyContent: 'flex-end',
-                      alignItems: 'end',
-                      columnGap: 1,
-                      mb: 2,
-                    }}>
-                      <Box sx={{
-                        bgcolor: item.userType === "admin" ? '#e0f7fa' : '#ffecb3',
-                        p: 1,
-                        borderRadius: item.userType === "admin" ? '20px 5px 20px 0px' : "5px 20px 0px 20px",
-                        maxWidth: '70%',
-                        textAlign: 'left',
-                        wordBreak: 'break-word',
-                        position: 'relative',
-                        boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.16)',
-                        '&:hover': { boxShadow: '0px 6px 12px rgba(0, 0, 0, 0.32)' },
-                      }}>
-                        <ListItemText
-                          sx={{ position: "relative", zIndex: 2, my: 0 }}
-                          primary={
-                            <>
-                              {handleMessageDesign(item)}
-                            </>
-                          }
-                        />
-                        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                          <Typography sx={{ fontStyle: "italic", fontSize: "10px" }} variant='caption'>{formatTime(item.timeStamp.seconds)}</Typography>
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Avatar sx={{ width: 24, height: 24 }} src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnS1o3mO3S_Nkfw1WAGaRJ6KaOGgODpfoOsA&usqp=CAU' />
-                      </Box>
-                    </ListItem>
-                  </>
-                )
-              })}
-            </List>
+                    return (
+                      <>
+                        {isNewDay && (
+                          <Box sx={{ width: '100%', textAlign: 'center', my: 2 }}>
+                            <Typography variant="caption">
+                              <Divider>
+                                {formatDate(item.timeStamp)}
+                              </Divider>
+                            </Typography>
+                          </Box>
+                        )}
+                        <ListItem key={index} sx={{
+                          display: 'flex',
+                          flexDirection: item.userType === "admin" ? 'row-reverse' : 'row',
+                          justifyContent: 'flex-end',
+                          alignItems: 'end',
+                          columnGap: 1,
+                          mb: 2,
+                        }}>
+                          <Box sx={{
+                            bgcolor: item.userType === "admin" ? '#e0f7fa' : '#ffecb3',
+                            p: 1,
+                            borderRadius: item.userType === "admin" ? '20px 5px 20px 0px' : "5px 20px 0px 20px",
+                            maxWidth: '70%',
+                            textAlign: 'left',
+                            wordBreak: 'break-word',
+                            position: 'relative',
+                            boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.16)',
+                            '&:hover': { boxShadow: '0px 6px 12px rgba(0, 0, 0, 0.32)' },
+                          }}>
+                            <ListItemText
+                              sx={{ position: "relative", zIndex: 2, my: 0 }}
+                              primary={
+                                <>
+                                  {handleMessageDesign(item)}
+                                </>
+                              }
+                            />
+                            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                              <Typography sx={{ fontStyle: "italic", fontSize: "10px" }} variant='caption'>{formatTime(item.timeStamp.seconds)}</Typography>
+                            </Box>
+                          </Box>
+                          <Box>
+                            <Avatar sx={{ width: 24, height: 24 }} src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnS1o3mO3S_Nkfw1WAGaRJ6KaOGgODpfoOsA&usqp=CAU' />
+                          </Box>
+                        </ListItem>
+                      </>
+                    )
+                  })}
+                </List>
+              }
+            </>
+          }
+          {status === 'block' &&
+            <Box sx={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              textAlign: "center",
+              backgroundColor: "#f2f2f2",
+              // padding: "20px",
+              borderRadius: "10px",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            }}>
+              <BlockIcon sx={{ fontSize: 60, color: "#ff1744" }} />
+              <Typography variant='h6' sx={{ marginTop: "10px", color: "#333", fontWeight: "bold" }}>
+                This Chat is Blocked by the Admin
+              </Typography>
+              <Typography sx={{ color: "#666", marginTop: "5px" }}>
+                Please contact support for more information.
+              </Typography>
+            </Box>
           }
         </Box>
 
@@ -312,6 +368,7 @@ function App() {
             <Grid item xs={1.2}>
               <IconButton
                 color="primary"
+                disabled={status !== "active"}
                 aria-label="upload attachment"
                 component="span"
                 sx={{ position: "relative" }}
@@ -323,6 +380,7 @@ function App() {
             <Grid item xs={8.7}>
               <TextField
                 size='small'
+                disabled={status !== "active"}
                 fullWidth
                 value={message}
                 onChange={handleMessageChange}
@@ -332,7 +390,7 @@ function App() {
               />
             </Grid>
             <Grid item xs={2}>
-              <IconButton color="primary" onClick={handleSendMessage}>
+              <IconButton disabled={status !== "active"} color="primary" onClick={handleSendMessage}>
                 <SendIcon />
               </IconButton>
             </Grid>
@@ -343,7 +401,7 @@ function App() {
             <CircularProgress />
           </Box>
         }
-      </Box>
+      </Box >
     </>
   );
 }

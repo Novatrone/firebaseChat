@@ -15,6 +15,9 @@ export const listenToDocumentData = (bookingId, userId, updateCallback) => {
             data.unshift({ ...doc.data(), id: doc.id }); // unshift to reverse the order
         });
 
+        console.log("Initial data:", data); // Add this line to debug
+
+
         if (data.length > 0) {
             lastDocument = snapshot.docs[snapshot.docs.length - 1];
             const realTimeQuery = query(collectionRef, orderBy("timeStamp", "asc"), startAfter(lastDocument));
@@ -63,6 +66,26 @@ export const loadMoreDocuments = (bookingId, userId, updateCallback) => {
         });
     } else {
         console.log("No starting point for loading more documents.");
+    }
+};
+
+export const getStatus = async (bookingId, userId) => {
+
+    try {
+        // Create a reference to the specific document
+        const bookingDocRef = doc(db, "users", userId, "booking", bookingId);
+        // Get the document
+        const bookingDocSnap = await getDoc(bookingDocRef);
+
+        if (bookingDocSnap.exists()) {
+            return { status: "success", data: bookingDocSnap.data() };
+        } else {
+            console.log("No such booking!");
+            return { status: "not found" };
+        }
+    } catch (error) {
+        console.error("Error getting document:", error);
+        throw error;
     }
 };
 
