@@ -1,24 +1,32 @@
 const chat = [
   {
-    type:"query",
-    queryText:"how can i buy this?",
-    timeStamp:"",
-    comment:"",
-    userType:"user"
+    type: "query",
+    queryText: "how can i buy this?",
+    timeStamp: "",
+    comment: "",
+    userType: "user"
   },
   {
-    type:"question",
-    questionText:"",
-    // questionDataType:"",
-    options:[{},{},{},{}],
-    timeStamp:"",
-    userType:"admin"
+    type: "question",
+    questionText: "",
+    options: [
+      {
+        selected: true,
+        option: ""
+      },
+      {
+        selected: true,
+        option: ""
+      }
+    ],
+    timeStamp: "",
+    userType: "admin"
   },
   {
-    type:"attachment",
-    mimeType:"",
-    url:"",
-    timeStamp:"",
-    userType:"user"
+    type: "attachment",
+    mimeType: "",
+    url: "",
+    timeStamp: "",
+    userType: "user"
   }
 ]

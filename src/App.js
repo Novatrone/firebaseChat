@@ -3,12 +3,11 @@ import { Box, Divider, Grid, TextField, IconButton, List, ListItem, ListItemText
 import SendIcon from '@mui/icons-material/Send';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import BlockIcon from '@mui/icons-material/Block'; // Importing Block icon for visual effect
-import { AddDocumentData, UpdateDocumentData, UploadAttachment, getStatus, listenToDocumentData, loadMoreDocuments } from './contoller/chat';
+import { AddDocumentData, UpdateDocumentData, UploadAttachment, getUserDetails, listenToDocumentData, loadMoreDocuments } from './contoller/chat';
 
 function App() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false)
-  const [bookingId, setBookingId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [newMessageSent, setNewMessageSent] = useState(false);
@@ -16,12 +15,9 @@ function App() {
   const [uploadState, setUploadState] = useState({ status: false, name: "" })
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState(null);
-  console.log("fullScreenImage: ", fullScreenImage);
-  const [status, setStatus] = useState("");
-  console.log("status: ", status);
+  const [details, setDetails] = useState("");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
-
 
 
   useEffect(() => {
@@ -34,27 +30,32 @@ function App() {
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    const bId = queryParams.get("bookingId");
     const uId = queryParams.get("userId");
-    setBookingId(bId);
     setUserId(uId);
   }, []);
 
   // for get all massage
   useEffect(() => {
-    if (bookingId && userId) {
-      const unsubscribe = listenToDocumentData(bookingId, userId, (newData) => {
+    if (userId) {
+      const unsubscribe = listenToDocumentData(userId, (newData) => {
         console.log("newData: ", newData.chats);
         setChatHistory(newData.chats);
         setNewMessageSent(true);
       });
-      return () => unsubscribe();
+
+      // Cleanup function
+      return () => {
+        // Ensure unsubscribe is a function before calling it
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      };
     }
-  }, [bookingId, userId]);
+  }, [userId]);
   // load more data
   const LoadMore = async () => {
-    if (bookingId && userId) {
-      const unsubscribe = await loadMoreDocuments(bookingId, userId, (newData) => {
+    if (userId) {
+      const unsubscribe = await loadMoreDocuments(userId, (newData) => {
         setChatHistory(previousChats => [...newData.chats, ...previousChats]);
         const newScrollHeight = scrollRef.current.scrollHeight;
         console.log("newScrollHeight: ", newScrollHeight);
@@ -90,7 +91,7 @@ function App() {
       inputRef.current.focus();
     }
 
-    const result = await AddDocumentData(bookingId, userId, data);
+    const result = await AddDocumentData(userId, data);
     console.log("result: ", result);
 
     if (result.status === "success") {
@@ -105,14 +106,14 @@ function App() {
       alert("File size should not exceed 10MB.");
       return;
     }
-    const result = await UploadAttachment(bookingId, userId, val)
+    const result = await UploadAttachment(userId, val)
     if (result.status === "success") {
       const data = {
         type: "attachment",
         url: result.url,
         mimeType: val.type
       }
-      const result2 = await AddDocumentData(bookingId, userId, data)
+      const result2 = await AddDocumentData(userId, data)
       console.log("result: ", result);
       if (result2.status === "success") {
         setUploadState({ status: false, name: "" })
@@ -158,26 +159,26 @@ function App() {
       newArray.push(item);
     });
 
-    const result = await UpdateDocumentData(bookingId, userId, item.id, newArray)
+    const result = await UpdateDocumentData(userId, item.id, newArray)
     if (result.status === "success") {
       setLoading(false)
     }
   }
 
-  const GetChatStatus = async () => {
+  const UserDetails = async () => {
     setLoading(true)
-    const result = await getStatus(bookingId, userId)
+    const result = await getUserDetails(userId)
     if (result.status === "success") {
-      setStatus(result.data.status);
+      setDetails(result.data);
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (bookingId && userId) {
-      GetChatStatus()
+    if (userId) {
+      UserDetails()
     }
-  }, [bookingId, userId]);
+  }, [userId]);
 
   const FullScreenView = () => {
     if (!isFullScreen) return null;
@@ -214,7 +215,7 @@ function App() {
     } else if (item.type === "question") {
       return (
         <>
-          {item.question}
+          {item.questionText}
           {item.options && item.options.length > 0 &&
             <Grid container spacing={2} sx={{ mt: 1 }}>
               {item.options.map((option, idx) => (
@@ -314,7 +315,7 @@ function App() {
         position: "relative",
       }}>
         <Box sx={{ flexGrow: 1, overflowY: 'auto', paddingInline: 1 }} ref={scrollRef}>
-          {status === 'active' &&
+          {details.status === 'active' &&
             <>
               {chatHistory &&
                 <List>
@@ -365,7 +366,7 @@ function App() {
                             </Box>
                           </Box>
                           <Box>
-                            <Avatar sx={{ width: 24, height: 24 }} src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnS1o3mO3S_Nkfw1WAGaRJ6KaOGgODpfoOsA&usqp=CAU' />
+                            <Avatar sx={{ width: 24, height: 24,backgroundColor:"aliceblue" }} src={item.userType === "client" ? details.imgUlr : '/images/chatLogo.png'} />
                           </Box>
                         </ListItem>
                       </>
@@ -375,7 +376,7 @@ function App() {
               }
             </>
           }
-          {status === 'block' &&
+          {details.status === 'block' &&
             <Box sx={{
               width: "100%",
               height: "100%",
@@ -406,7 +407,7 @@ function App() {
             <Grid item xs={1.2}>
               <IconButton
                 color="primary"
-                disabled={status !== "active"}
+                disabled={details.status !== "active"}
                 aria-label="upload attachment"
                 component="span"
                 sx={{ position: "relative" }}
@@ -418,7 +419,7 @@ function App() {
             <Grid item xs={8.7}>
               <TextField
                 size='small'
-                disabled={status !== "active"}
+                disabled={details.status !== "active"}
                 fullWidth
                 value={message}
                 onChange={handleMessageChange}
@@ -428,7 +429,7 @@ function App() {
               />
             </Grid>
             <Grid item xs={2}>
-              <IconButton disabled={status !== "active"} color="primary" onClick={handleSendMessage}>
+              <IconButton disabled={details.status !== "active"} color="primary" onClick={handleSendMessage}>
                 <SendIcon />
               </IconButton>
             </Grid>

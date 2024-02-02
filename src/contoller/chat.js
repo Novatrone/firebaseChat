@@ -4,8 +4,8 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 let lastDocument = null;
 
 
-export const listenToDocumentData = (bookingId, userId, updateCallback) => {
-    const collectionRef = collection(db, "users", userId, "booking", bookingId, "chat");
+export const listenToDocumentData = (userId, updateCallback) => {
+    const collectionRef = collection(db, "users", userId, "booking");
     const orderByDateDesc = orderBy("timeStamp", "desc");
     const queryLimit = query(collectionRef, orderByDateDesc, limit(50));
 
@@ -43,9 +43,9 @@ export const listenToDocumentData = (bookingId, userId, updateCallback) => {
     });
 };
 
-export const loadMoreDocuments = (bookingId, userId, updateCallback) => {
+export const loadMoreDocuments = (userId, updateCallback) => {
     if (lastDocument) {
-        const collectionRef = collection(db, "users", userId, "booking", bookingId, "chat");
+        const collectionRef = collection(db, "users", userId, "booking");
         const orderByDateDesc = orderBy("timeStamp", "desc");
         const nextQuery = query(collectionRef, orderByDateDesc, startAfter(lastDocument), limit(50));
 
@@ -69,12 +69,10 @@ export const loadMoreDocuments = (bookingId, userId, updateCallback) => {
     }
 };
 
-export const getStatus = async (bookingId, userId) => {
+export const getUserDetails = async (userId) => {
 
     try {
-        // Create a reference to the specific document
-        const bookingDocRef = doc(db, "users", userId, "booking", bookingId);
-        // Get the document
+        const bookingDocRef = doc(db, "users", userId);
         const bookingDocSnap = await getDoc(bookingDocRef);
 
         if (bookingDocSnap.exists()) {
@@ -89,10 +87,10 @@ export const getStatus = async (bookingId, userId) => {
     }
 };
 
-export const AddDocumentData = async (bookingId, userId, data) => {
+export const AddDocumentData = async (userId, data) => {
     const newData = { ...data, userType: "client", timeStamp: Timestamp.now() }
     try {
-        const chatCollectionRef = collection(db, "users", userId, "booking", bookingId, "chat");
+        const chatCollectionRef = collection(db, "users", userId, "booking");
 
         const newChatDocRef = await addDoc(chatCollectionRef, newData);
 
@@ -104,11 +102,11 @@ export const AddDocumentData = async (bookingId, userId, data) => {
     }
 }
 
-export const UpdateDocumentData = async (bookingId, userId, id, newArray) => {
+export const UpdateDocumentData = async ( userId, id, newArray) => {
     console.log("id: ", id);
     console.log("newArray: ", newArray);
     try {
-        const chatDocRef = doc(db, "users", userId, "booking", bookingId, "chat", id);
+        const chatDocRef = doc(db, "users", userId, "booking", id);
         const chatDocSnapshot = await getDoc(chatDocRef);
         const chatDocData = chatDocSnapshot.data();
 
@@ -122,12 +120,12 @@ export const UpdateDocumentData = async (bookingId, userId, id, newArray) => {
     }
 }
 
-export const UploadAttachment = async (bookingId, userId, data) => {
+export const UploadAttachment = async ( userId, data) => {
     console.log("data: ", data);
     const newData = { ...data, userType: "client", timeStamp: Timestamp.now() }
     console.log("newData: ", newData);
     try {
-        const storageRef = ref(storage, `${userId}/${bookingId}/${data.name}`);
+        const storageRef = ref(storage, `${userId}/${data.name}`);
         const uploadResult = await uploadBytes(storageRef, data)
         const downloadURL = await getDownloadURL(uploadResult.ref);
         console.log("File available at", downloadURL);
