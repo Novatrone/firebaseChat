@@ -4,14 +4,14 @@ import { getStorage } from 'firebase/storage';
 
 
 const firebaseConfig = {
-    apiKey: "AIzaSyB50_Ei-DZA_q2cnPk79zIqXw39daZNNPc",
-    authDomain: "learning-react-5b450.firebaseapp.com",
-    projectId: "learning-react-5b450",
-    storageBucket: "learning-react-5b450.appspot.com",
-    messagingSenderId: "694304881346",
-    appId: "1:694304881346:web:45c93e7efb9de8382c995b",
-    measurementId: "G-ZC203K1QDW"
-};
+    apiKey: "AIzaSyCfmYeArOGyhvcDJWhsyk8g9RF3OngD_wQ",
+    authDomain: "alive-skin-da29a.firebaseapp.com",
+    projectId: "alive-skin-da29a",
+    storageBucket: "alive-skin-da29a.appspot.com",
+    messagingSenderId: "546327095982",
+    appId: "1:546327095982:web:eb03cdd24ad53f8cd69b3f",
+    measurementId: "G-4SGJ2MT669"
+  };
 
 export const firebase = getApps.length > 0 ? getApp() : initializeApp(firebaseConfig);
 
