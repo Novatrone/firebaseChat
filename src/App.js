@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, Divider, Grid, TextField, IconButton, List, ListItem, ListItemText, Avatar, Button, Typography, Popover, CircularProgress, Link, Skeleton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import AttachmentIcon from '@mui/icons-material/Attachment';
+import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import BlockIcon from '@mui/icons-material/Block'; // Importing Block icon for visual effect
 import { AddDocumentData, UpdateDocumentData, UploadAttachment, getUserDetails, listenToDocumentData, loadMoreDocuments } from './contoller/chat';
 
@@ -166,10 +167,14 @@ function App() {
   }
 
   const UserDetails = async () => {
+    console.log("UserDetails: ");
     setLoading(true)
     const result = await getUserDetails(userId)
     if (result.status === "success") {
       setDetails(result.data);
+      setLoading(false)
+    } else {
+      setDetails({ status: null });
       setLoading(false)
     }
   }
@@ -366,7 +371,7 @@ function App() {
                             </Box>
                           </Box>
                           <Box>
-                            <Avatar sx={{ width: 24, height: 24,backgroundColor:"aliceblue" }} src={item.userType === "client" ? details.imgUlr : '/images/chatLogo.png'} />
+                            <Avatar sx={{ width: 24, height: 24, backgroundColor: "aliceblue" }} src={item.userType === "client" ? details.imgUlr : '/images/chatLogo.png'} />
                           </Box>
                         </ListItem>
                       </>
@@ -395,6 +400,28 @@ function App() {
                 This Chat is Blocked by the Admin
               </Typography>
               <Typography sx={{ color: "#666", marginTop: "5px" }}>
+                Please contact support for more information.
+              </Typography>
+            </Box>
+          }
+          {details.status === null &&
+            <Box sx={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              textAlign: "center",
+              backgroundColor: "#f2f2f2",
+              // padding: "20px",
+              borderRadius: "10px",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+            }}>
+              <EventOutlinedIcon color='primary' sx={{ fontSize: 60 }} />
+              <Typography variant='h6' sx={{ marginTop: "10px", color: "#333", fontWeight: "bold", lineHeight: 1.3 }}>
+                You haven't booked a consultation package yet. Please book at least one package to start the conversation.              </Typography>
+              <Typography sx={{ color: "#666", marginTop: 2 }}>
                 Please contact support for more information.
               </Typography>
             </Box>
