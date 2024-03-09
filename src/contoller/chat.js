@@ -88,7 +88,7 @@ export const getUserDetails = async (userId) => {
 };
 
 export const AddDocumentData = async (userId, data) => {
-    const newData = { ...data, userType: "client", timeStamp: Timestamp.now() }
+    const newData = { ...data, userType: "client", timeStamp: Timestamp.now(), isRead: false };
     try {
         const chatCollectionRef = collection(db, "users", userId, "booking");
 
@@ -102,7 +102,7 @@ export const AddDocumentData = async (userId, data) => {
     }
 }
 
-export const UpdateDocumentData = async ( userId, id, newArray) => {
+export const UpdateDocumentData = async (userId, id, newArray) => {
     console.log("id: ", id);
     console.log("newArray: ", newArray);
     try {
@@ -120,7 +120,7 @@ export const UpdateDocumentData = async ( userId, id, newArray) => {
     }
 }
 
-export const UploadAttachment = async ( userId, data) => {
+export const UploadAttachment = async (userId, data) => {
     console.log("data: ", data);
     const newData = { ...data, userType: "client", timeStamp: Timestamp.now() }
     console.log("newData: ", newData);

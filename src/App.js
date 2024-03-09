@@ -167,9 +167,9 @@ function App() {
   }
 
   const UserDetails = async () => {
-    console.log("UserDetails: ");
     setLoading(true)
     const result = await getUserDetails(userId)
+    console.log("result: ", result);
     if (result.status === "success") {
       setDetails(result.data);
       setLoading(false)
